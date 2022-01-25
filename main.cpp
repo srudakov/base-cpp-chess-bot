@@ -1,6 +1,7 @@
 #include "BaseBot.h"
 
 #include <QCoreApplication>
+#include <QCommandLineParser>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QWebSocket>
@@ -48,10 +49,10 @@ namespace
     }
   }
   
-  void register_on_server(QWebSocket& webSocket)
+  void register_on_server(QWebSocket& webSocket, const QString& name)
   {
     qInfo() << "connected";
-    const QJsonObject registration{ {"name", "qclient"}, {MESSAGE_TYPE_KEY, "registration"} };
+    const QJsonObject registration{ {"name", name}, {MESSAGE_TYPE_KEY, "registration"} };
     webSocket.sendBinaryMessage(QJsonDocument(registration).toJson());
   }
   
@@ -66,11 +67,23 @@ namespace
 int main(int argc, char* argv[])
 {
   QCoreApplication app(argc, argv);
+  QCommandLineParser options;
+  const auto& help = options.addHelpOption();
+  options.addOptions({ {{"a", "address"}, "web socket server address to connect", "address"},
+                       {{"p", "port"}, "web socket server port to connect", "port"},
+                       {{"n", "name"}, "this client name to register on server", "name"} });
+  options.process(app);
+  const QString name = options.isSet("name") ? options.value("name") : QString("base-bot");
+  const QString address = options.isSet("address") ? options.value("address") : QString("localhost");
+  const QString port = options.isSet("port") ? options.value("port") : QString("6969");
+
   QWebSocket webSocket;
   BaseBot bot([&webSocket](const QString& from, const QString& to) { sendMove(webSocket, from, to); });
-  QObject::connect(&webSocket, &QWebSocket::connected, &webSocket, [&webSocket](){register_on_server(webSocket);});
-  QObject::connect(&webSocket, &QWebSocket::textMessageReceived, &webSocket, [&bot](const QString& message) {receiveMessage(message, bot);});
-  webSocket.open(QUrl(QString("ws://localhost:6969")));
+  QObject::connect(&webSocket, &QWebSocket::connected,
+                   &webSocket, [&webSocket, &name](){register_on_server(webSocket, name);});
+  QObject::connect(&webSocket, &QWebSocket::textMessageReceived,
+                   &webSocket, [&bot](const QString& message) {receiveMessage(message, bot);});
+  webSocket.open(QUrl(QString("ws://") + address + ":" + port));
 
   return app.exec();
 }
