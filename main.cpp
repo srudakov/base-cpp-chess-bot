@@ -14,6 +14,7 @@ namespace
   const QString MOVE_TYPE = "move";
   const QString FROM_KEY = "from";
   const QString TO_KEY = "to";
+  const QString TRANS_KEY = "transform";
   
   QJsonObject parse(const QString& message)
   {
@@ -58,12 +59,13 @@ namespace
     {
       const QString& from = validateCell(values.value(FROM_KEY).toString());
       const QString& to = validateCell(values.value(TO_KEY).toString());
+      const QString& transform = validateCell(values.value(TRANS_KEY).toString());
       if(from.isEmpty() || to.isEmpty())
         qWarning() << "invalid move: " << message;
       else
       {
-        qInfo() << "enemy move: " << from << " -> " << to;
-        bot.enemyMoved(from, to);
+        qInfo() << "enemy move: " << from << " -> " << to << "(" << transform << ")";
+        bot.enemyMoved(from, to, transform);
       }
       return;
     }
@@ -77,14 +79,15 @@ namespace
     webSocket.sendBinaryMessage(QJsonDocument(registration).toJson());
   }
   
-  void sendMove(QWebSocket& webSocket, const QString& from, const QString& to)
+  void sendMove(QWebSocket& webSocket, const QString& from, const QString& to, const QString& transform)
   {
     qInfo() << "move to send: " << from << " -> " << to;
     const QString& checkedFrom = validateCell(from);
     const QString& checkedTo = validateCell(to);
     if(checkedFrom.isEmpty() || checkedTo.isEmpty())
       return;
-    const QJsonObject move{ {FROM_KEY, checkedFrom}, {TO_KEY, checkedTo}, {MESSAGE_TYPE_KEY, MOVE_TYPE} };
+    const QJsonObject move{ {FROM_KEY, checkedFrom}, {TO_KEY, checkedTo},
+                            {TRANS_KEY, transform}, {MESSAGE_TYPE_KEY, MOVE_TYPE} };
     webSocket.sendBinaryMessage(QJsonDocument(move).toJson());
   }
 } // namespace
@@ -103,7 +106,8 @@ int main(int argc, char* argv[])
   const QString port = options.isSet("port") ? options.value("port") : QString("6969");
 
   QWebSocket webSocket;
-  BaseBot bot([&webSocket](const QString& from, const QString& to) { sendMove(webSocket, from, to); });
+  BaseBot bot([&webSocket](const QString& from, const QString& to, const QString& transform)
+              { sendMove(webSocket, from, to, transform); });
 
   QObject::connect(&webSocket, &QWebSocket::connected,
                    &webSocket, [&webSocket, &name](){register_on_server(webSocket, name);});
