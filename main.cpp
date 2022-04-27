@@ -59,7 +59,7 @@ namespace
     {
       const QString& from = validateCell(values.value(FROM_KEY).toString());
       const QString& to = validateCell(values.value(TO_KEY).toString());
-      const QString& transform = validateCell(values.value(TRANS_KEY).toString());
+      const QString& transform = values.value(TRANS_KEY).toString();
       if(from.isEmpty() || to.isEmpty())
         qWarning() << "invalid move: " << message;
       else
